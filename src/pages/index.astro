@@ -1,11 +1,20 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+import Layout from "../layouts/Layout.astro";
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const hamu_name = "ぽこちゃん🐹";
+const description = "きのう　いえに　やってきた　ハムスターだよ㊗️";
+const skills = ["ひまわりのタネ", "観覧車", "もごもご", "ねんね"];
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="わが家の新人ハムスター">
+    <h1>{hamu_name}</h1>
+    <p>{description}</p>
+
+    <h2>とくいなこと</h2>
+    <p class="skill-list">
+      {skills.map((skill) => <span class="skill-tag">{skill}</span>)}
+    </p>
+
+    <a href="/about">飼い主について　→</a>
+    </div>
 </Layout>

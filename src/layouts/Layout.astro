@@ -1,22 +1,63 @@
-<!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
+---
+const { title } = Astro.props;
+---
+
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
 </html>
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
+<style is:global>
+  body {
+    font-family: sans-serif;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem;
+    background-color: #b2d8f8;
+  }
+  h1,
+  h2 {
+    color: #df7bba;
+  }
+
+  h1 {
+    background-color: #fff6d0;
+    display: inline-block;
+  }
+  p {
+    line-height: 1;
+  }
+
+    .profile-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .skill-list {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .skill-tag {
+    background-color: #5be3cf;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  .icon {
+    font-size: 4rem;
+  }
+
+  .info {
+    margin: 0;
+    color: #39426b;
+  }
+
 </style>
