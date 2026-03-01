@@ -1,16 +1,40 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import pokoImg from '../assets/poko-01.jpeg';
 
-const hamu_name = "ぽこちゃん🐹";
-const description = "さいきん　いえに　やってきた　ハムスターだよ㊗️";
-const skills = ["ひまわりのタネ", "観覧車", "もごもご", "ねんね"];
+const apiKey = import.meta.env.NILTO_API_KEY;
+const contentUrl = import.meta.env.NILTO_CONTENT_URL;
+
+if (!apiKey || !contentUrl) {
+  throw new Error(
+    "NILTO の設定がありません。.env に NILTO_API_KEY と NILTO_CONTENT_URL を設定してください。（.env.example を参照）"
+  );
+}
+
+const res = await fetch(contentUrl, {
+  headers: {
+    "X-NILTO-API-KEY": apiKey,
+  },
+});
+
+if (!res.ok) {
+  throw new Error(`NILTO API エラー: ${res.status} ${res.statusText}`);
+}
+
+const data = await res.json();
+
+const title = data._title ?? "わが家の新人ハムスター";
+const hamu_name = data.hamu_name ?? "";
+const description = data.description ?? "";
+const mainImage = data.main_image;
+const imageUrl = mainImage?.url ?? "";
+const imageAlt = mainImage?.alt || "ぽこちゃん";
+const skills = (data.skills ?? []).map((s: { skill_name?: string }) => s?.skill_name ?? "").filter(Boolean);
 ---
 
-<Layout title="わが家の新人ハムスター">
+<Layout title={title}>
     <h1>{hamu_name}</h1>
     <p>{description}</p>
-    <img src={pokoImg.src} alt="ぽこちゃん" width="300">
+    {imageUrl && <img src={imageUrl} alt={imageAlt} width="300" />}
 
     <hr />
     <h2>とくいなこと</h2>
@@ -20,5 +44,4 @@ const skills = ["ひまわりのタネ", "観覧車", "もごもご", "ねんね
 
     <hr />
     <a href="/about" class="plain-link">飼い主について　→</a>
-    </div>
 </Layout>
