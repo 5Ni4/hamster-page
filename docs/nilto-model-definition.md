@@ -196,8 +196,11 @@ GET https://cms-api.nilto.com/v1/contents?model=top_page&limit=1
 
 | フィールドLUID | 表示名 | フィールド種類 | 説明 |
 |----------------|--------|----------------|------|
-| `image` | 画像 | **メディア** | 表示用 URL・alt |
+| `image` | 画像 | **メディア** | 表示用 URL・alt。API が **`width` / `height`** を返す場合は一覧の縦横比にそのまま利用します（最優先） |
 | `alt` | 代替テキスト | **1行テキスト**（任意） | `image.alt` の補足 |
+| `orientation` | 向き（ヒント） | **単一選択** または **1行テキスト**（任意） | 実寸が取れないときだけ一覧の比率用。選択肢の例: `portrait`（縦長）／`landscape`（横長）／`square`（正方形）。日本語ラベル（`縦向き`・`横向き`・`正方形`）や **`3:4`** / **`4:3`** のような比率表記も解釈します |
+
+※ 単一選択を置く場合は、値（内部キー）を `portrait` / `landscape` / `square` にするとサイト側の判定が確実です。
 
 ### 取得 API
 
@@ -222,8 +225,14 @@ GET https://cms-api.nilto.com/v1/contents?model=album&limit=100&offset=0
   "shoot_date": "2025-03-29",
   "photos": [
     {
-      "image": { "url": "https://cms-assets.nilto.com/.../1.jpg", "alt": "ぽこちゃん" },
-      "alt": "ぽこちゃん"
+      "image": {
+        "url": "https://cms-assets.nilto.com/.../1.jpg",
+        "alt": "ぽこちゃん",
+        "width": 3024,
+        "height": 4032
+      },
+      "alt": "ぽこちゃん",
+      "orientation": "portrait"
     }
   ]
 }

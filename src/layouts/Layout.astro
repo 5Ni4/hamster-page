@@ -173,28 +173,193 @@ const { title } = Astro.props;
     background-color: #ffe8f0;
   }
 
+  body:has(.album-page) {
+    max-width: min(100%, 56rem);
+  }
+
+  .album-page__nav {
+    margin-bottom: 0.75rem;
+  }
+
+  .album-page__hero {
+    margin: 0 0 1.75rem;
+  }
+
   .album-page-heading {
-    margin-top: 0.5rem;
+    margin: 0 0 0.35rem;
+    font-size: clamp(1.35rem, 4vw, 1.85rem);
+    line-height: 1.25;
+  }
+
+  .album-page__meta {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #39426b;
+    font-weight: 500;
+  }
+
+  .album-page__empty {
+    margin: 0;
+    padding: 1.5rem 1.25rem;
+    background: rgba(255, 255, 255, 0.5);
+    border: 2px dashed #c8d8ec;
+    border-radius: 8px;
+    color: #39426b;
+    line-height: 1.65;
   }
 
   .album-grid {
     list-style: none;
-    margin: 1rem 0 0;
+    margin: 0;
     padding: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: 1fr;
+    gap: 1.15rem;
+  }
+
+  @media (min-width: 540px) {
+    .album-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+    }
+  }
+
+  @media (min-width: 860px) {
+    .album-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.35rem;
+    }
   }
 
   .album-grid__item {
     margin: 0;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 14px;
+    padding: 0.55rem;
+    border: 2px solid rgba(223, 123, 186, 0.4);
+    box-shadow: 8px 8px 0 rgba(255, 255, 255, 0.75);
   }
 
-  .album-grid__item img {
+  .album-grid__trigger {
+    all: unset;
+    display: block;
+    width: 100%;
+    cursor: zoom-in;
+    border-radius: 10px;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .album-grid__trigger:focus-visible {
+    outline: 3px solid #df7bba;
+    outline-offset: 3px;
+  }
+
+  .album-grid__frame {
+    display: block;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.45);
+  }
+
+  .album-grid__frame--boxed img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    pointer-events: none;
+    display: block;
+  }
+
+  .album-grid__frame--natural img {
     width: 100%;
     height: auto;
-    aspect-ratio: 1;
-    object-fit: cover;
     margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    pointer-events: none;
+    display: block;
+  }
+
+  .album-lightbox {
+    padding: 0;
+    border: none;
+    margin: 0;
+    max-width: none;
+    max-height: none;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+  }
+
+  .album-lightbox::backdrop {
+    background: rgba(25, 35, 55, 0.82);
+    backdrop-filter: blur(3px);
+  }
+
+  .album-lightbox__shell {
+    width: 100%;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: min(5vw, 1.75rem);
+    box-sizing: border-box;
+    cursor: zoom-out;
+  }
+
+  .album-lightbox__figure {
+    margin: 0;
+    position: relative;
+    max-width: min(94vw, 1200px);
+    max-height: 90vh;
+    cursor: default;
+  }
+
+  .album-lightbox__img {
+    display: block;
+    max-width: min(94vw, 1200px);
+    max-height: 90vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    margin: 0;
+    border-radius: 14px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  }
+
+  .album-lightbox__close {
+    position: absolute;
+    top: -0.6rem;
+    right: -0.6rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px dashed #df7bba;
+    background: #fff6d0;
+    color: #df7bba;
+    font-size: 1.5rem;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 4px 4px 0 rgba(255, 255, 255, 0.9);
+    z-index: 1;
+  }
+
+  .album-lightbox__close:hover {
+    background: #ffe8f0;
+  }
+
+  .album-lightbox__close:focus-visible {
+    outline: 3px solid #5be3cf;
+    outline-offset: 2px;
   }
 </style>

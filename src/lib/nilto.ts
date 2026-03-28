@@ -19,8 +19,10 @@ export type TopPageData = {
 };
 
 export type PhotoDayRow = {
-  image?: { url?: string; alt?: string };
+  image?: { url?: string; alt?: string; width?: unknown; height?: unknown };
   alt?: string;
+  /** メディアに width/height が無い場合の縦横ヒント（単一選択の値・表示ラベルどちらでも可） */
+  orientation?: string;
 };
 
 export type PhotoDayItem = {
@@ -30,7 +32,82 @@ export type PhotoDayItem = {
   photos?: PhotoDayRow[];
 };
 
-export type PhotoForAlbum = { url: string; alt: string };
+export type PhotoForAlbum = {
+  url: string;
+  alt: string;
+  /** メディア API が返す実寸があれば一覧の aspect-ratio 予約に使う */
+  width?: number;
+  height?: number;
+  /** `width` / `height` が無いとき `orientation` から付与（CSS 値、例: `3 / 4`） */
+  aspectRatioCss?: string;
+};
+
+function parsePositiveInt(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.round(value);
+  }
+  if (typeof value === "string") {
+    const n = Number.parseInt(value.trim(), 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return undefined;
+}
+
+function readImageDimensions(img: PhotoDayRow["image"]): { w?: number; h?: number } {
+  if (!img || typeof img !== "object") return {};
+  const o = img as Record<string, unknown>;
+  let w = parsePositiveInt(o.width);
+  let h = parsePositiveInt(o.height);
+  const meta = o.metadata;
+  if ((!w || !h) && meta && typeof meta === "object" && !Array.isArray(meta)) {
+    const m = meta as Record<string, unknown>;
+    w = w ?? parsePositiveInt(m.width);
+    h = h ?? parsePositiveInt(m.height);
+  }
+  return { w, h };
+}
+
+/**
+ * NILTO の単一選択や自由入力から CSS aspect-ratio 用の比率文字列を得る。
+ * 実寸が取れないときのフォールバック用（完全な一致ではないがレイアウトの乱れを抑える）。
+ */
+function orientationToAspectRatioCss(orientation: string | undefined): string | undefined {
+  const raw = (orientation ?? "").trim();
+  if (!raw) return undefined;
+  const o = raw.toLowerCase();
+
+  if (["portrait", "縦", "縦長", "たて", "縦向き"].includes(o)) {
+    return "3 / 4";
+  }
+  if (["landscape", "横", "横長", "よこ", "横向き"].includes(o)) {
+    return "4 / 3";
+  }
+  if (["square", "正方形", "スクエア", "1:1", "1：1"].includes(o)) {
+    return "1 / 1";
+  }
+
+  const ratioMatch = raw.match(/^(\d+)\s*[/:：]\s*(\d+)$/);
+  if (ratioMatch) {
+    const a = Number.parseInt(ratioMatch[1]!, 10);
+    const b = Number.parseInt(ratioMatch[2]!, 10);
+    if (Number.isFinite(a) && Number.isFinite(b) && a > 0 && b > 0) {
+      return `${a} / ${b}`;
+    }
+  }
+
+  return undefined;
+}
+
+/** サムネ枠のインライン style（aspect-ratio のみ）。無ければ undefined。 */
+export function albumThumbFrameStyle(p: PhotoForAlbum): string | undefined {
+  if (p.width && p.height) return `aspect-ratio: ${p.width} / ${p.height}`;
+  if (p.aspectRatioCss) return `aspect-ratio: ${p.aspectRatioCss}`;
+  return undefined;
+}
+
+export function albumThumbUsesLockedAspect(p: PhotoForAlbum): boolean {
+  return albumThumbFrameStyle(p) !== undefined;
+}
 
 /**
  * `https://cms-api.nilto.com/v1/contents/123?...` から `https://cms-api.nilto.com/v1` を得る。
@@ -315,7 +392,19 @@ export function mergePhotosForDate(items: PhotoDayItem[]): PhotoForAlbum[] {
       const url = img?.url?.trim() ?? "";
       if (!url) continue;
       const alt = (row.alt || img?.alt || "ぽこちゃんの写真").trim() || "ぽこちゃんの写真";
-      photos.push({ url, alt });
+      const { w, h } = readImageDimensions(img);
+      const aspectRatioCss =
+        w && h ? undefined : orientationToAspectRatioCss(row.orientation?.trim() || undefined);
+
+      const entry: PhotoForAlbum = { url, alt };
+      if (w && h) {
+        entry.width = w;
+        entry.height = h;
+      }
+      if (aspectRatioCss) {
+        entry.aspectRatioCss = aspectRatioCss;
+      }
+      photos.push(entry);
     }
   }
   return photos;

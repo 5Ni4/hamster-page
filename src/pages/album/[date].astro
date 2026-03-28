@@ -6,6 +6,8 @@ import {
   mergePhotosForDate,
   distinctShootDates,
   formatJapaneseAlbumHeading,
+  albumThumbFrameStyle,
+  albumThumbUsesLockedAspect,
   type PhotoForAlbum,
 } from "../../lib/nilto";
 
@@ -31,22 +33,109 @@ const { photos } = Astro.props as AlbumPageProps;
 
 const heading = dateParam ? formatJapaneseAlbumHeading(dateParam) : "";
 const title = dateParam ? `${heading} のアルバム` : "アルバム";
+const photoCount = photos.length;
+const photoCountLabel = photoCount === 0 ? "" : photoCount === 1 ? "1 枚" : `${photoCount} 枚`;
 ---
 
 <Layout title={title}>
-  <p><a href="/" class="plain-link">← トップへ</a></p>
-  <h2 class="album-page-heading">{heading}</h2>
+  <div class="album-page">
+    <nav class="album-page__nav" aria-label="ページ間の移動">
+      <a href="/" class="plain-link">← トップへ</a>
+    </nav>
+    <header class="album-page__hero">
+      <h2 class="album-page-heading">{heading}</h2>
+      {photoCount > 0 && <p class="album-page__meta">{photoCountLabel}の写真</p>}
+    </header>
+    {
+      photoCount === 0 ? (
+        <p class="album-page__empty">この日の写真はまだありません。カレンダーから別の日を選ぶか、あとでもう一度見に来てください。</p>
+      ) : (
+        <div class="album-page__gallery-root">
+          <ul class="album-grid">
+            {photos.map((p, i) => (
+              <li class="album-grid__item">
+                <button
+                  type="button"
+                  class="album-grid__trigger"
+                  aria-label={`写真を拡大表示（${p.alt || "画像"}）`}
+                  data-album-src={p.url}
+                  data-album-alt={p.alt}
+                >
+                  <span
+                    class:list={[
+                      "album-grid__frame",
+                      albumThumbUsesLockedAspect(p)
+                        ? "album-grid__frame--boxed"
+                        : "album-grid__frame--natural",
+                    ]}
+                    style={albumThumbFrameStyle(p)}
+                  >
+                    <img
+                      src={p.url}
+                      alt=""
+                      loading={i < 6 ? "eager" : "lazy"}
+                      decoding="async"
+                      {...typeof p.width === "number" && typeof p.height === "number"
+                        ? { width: p.width, height: p.height }
+                        : {}}
+                    />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <dialog class="album-lightbox" aria-label="写真の拡大表示">
+            <div class="album-lightbox__shell">
+              <figure class="album-lightbox__figure">
+                <button type="button" class="album-lightbox__close" aria-label="閉じる">
+                  ×
+                </button>
+                <img class="album-lightbox__img" alt="" decoding="async" />
+              </figure>
+            </div>
+          </dialog>
+        </div>
+      )
+    }
+  </div>
   {
-    photos.length === 0 ? (
-      <p>この日の写真はまだありません。</p>
-    ) : (
-      <ul class="album-grid">
-        {photos.map((p) => (
-          <li class="album-grid__item">
-            <img src={p.url} alt={p.alt} loading="lazy" decoding="async" width="400" height="400" />
-          </li>
-        ))}
-      </ul>
+    photoCount > 0 && (
+      <script is:inline>
+        (function () {
+          var root = document.querySelector(".album-page__gallery-root");
+          if (!root) return;
+          var dialog = root.querySelector(".album-lightbox");
+          var shell = root.querySelector(".album-lightbox__shell");
+          var lightImg = root.querySelector(".album-lightbox__img");
+          var closeBtn = root.querySelector(".album-lightbox__close");
+          if (!dialog || !shell || !lightImg || !closeBtn) return;
+
+          root.querySelectorAll(".album-grid__trigger").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var src = btn.getAttribute("data-album-src");
+              var alt = btn.getAttribute("data-album-alt") || "";
+              if (!src) return;
+              lightImg.src = src;
+              lightImg.alt = alt;
+              dialog.showModal();
+              closeBtn.focus();
+            });
+          });
+
+          closeBtn.addEventListener("click", function () {
+            dialog.close();
+          });
+
+          shell.addEventListener("click", function (e) {
+            if (e.target === shell) dialog.close();
+          });
+
+          dialog.addEventListener("close", function () {
+            lightImg.removeAttribute("src");
+            lightImg.alt = "";
+          });
+        })();
+      </script>
     )
   }
 </Layout>
