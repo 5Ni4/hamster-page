@@ -4,30 +4,50 @@ import Layout from "../layouts/Layout.astro";
 const apiKey = import.meta.env.NILTO_API_KEY;
 const contentUrl = import.meta.env.NILTO_CONTENT_URL;
 
+const fallbackData = {
+  _title: "わが家の新人ハムスター",
+  hamu_name: "ぽこちゃん",
+  description: "さいきん　いえに　やってきた　ハムスターだよ㊗️",
+  main_image: null,
+  skills: [] as Array<{ skill_name?: string }>,
+};
+
+let data = fallbackData;
+
 if (!apiKey || !contentUrl) {
-  throw new Error(
+  console.warn(
     "NILTO の設定がありません。.env に NILTO_API_KEY と NILTO_CONTENT_URL を設定してください。（.env.example を参照）"
   );
+} else {
+  try {
+    const res = await fetch(contentUrl, {
+      headers: {
+        "X-NILTO-API-KEY": apiKey,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`NILTO API エラー: ${res.status} ${res.statusText}`);
+    }
+
+    const parsed = await res.json();
+    if (parsed && typeof parsed === "object") {
+      data = {
+        ...fallbackData,
+        ...parsed,
+      };
+    }
+  } catch (error) {
+    console.error("NILTO コンテンツの取得に失敗したため、フォールバック表示を使用します。", error);
+  }
 }
 
-const res = await fetch(contentUrl, {
-  headers: {
-    "X-NILTO-API-KEY": apiKey,
-  },
-});
-
-if (!res.ok) {
-  throw new Error(`NILTO API エラー: ${res.status} ${res.statusText}`);
-}
-
-const data = await res.json();
-
-const title = data._title ?? "わが家の新人ハムスター";
-const hamu_name = data.hamu_name ?? "";
-const description = data.description ?? "";
+const title = data._title ?? fallbackData._title;
+const hamu_name = (data.hamu_name ?? fallbackData.hamu_name).trim() || fallbackData.hamu_name;
+const description = data.description ?? fallbackData.description;
 const mainImage = data.main_image;
 const imageUrl = mainImage?.url ?? "";
-const imageAlt = mainImage?.alt || "ぽこちゃん";
+const imageAlt = mainImage?.alt || fallbackData.hamu_name;
 const skills = (data.skills ?? []).map((s: { skill_name?: string }) => s?.skill_name ?? "").filter(Boolean);
 ---
 
