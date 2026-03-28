@@ -1,45 +1,27 @@
 ---
 import Layout from "../layouts/Layout.astro";
-
-const apiKey = import.meta.env.NILTO_API_KEY;
-const contentUrl = import.meta.env.NILTO_CONTENT_URL;
+import Calendar from "../components/Calendar.astro";
+import { fetchTopPageData, fetchPhotoDayList, distinctShootDates } from "../lib/nilto";
 
 const fallbackData = {
   _title: "わが家の新人ハムスター",
   hamu_name: "ぽこちゃん",
   description: "さいきん　いえに　やってきた　ハムスターだよ㊗️",
-  main_image: null,
+  main_image: null as { url?: string; alt?: string } | null,
   skills: [] as Array<{ skill_name?: string }>,
 };
 
-let data = fallbackData;
+const rawTop = await fetchTopPageData();
+let data = { ...fallbackData, ...(rawTop ?? {}) };
 
-if (!apiKey || !contentUrl) {
+const hasNilto =
+  Boolean(import.meta.env.NILTO_API_KEY) &&
+  (Boolean(import.meta.env.NILTO_CONTENT_URL) || Boolean(import.meta.env.NILTO_API_BASE));
+
+if (!hasNilto) {
   console.warn(
-    "NILTO の設定がありません。.env に NILTO_API_KEY と NILTO_CONTENT_URL を設定してください。（.env.example を参照）"
+    "NILTO の設定がありません。.env に NILTO_API_KEY と、NILTO_CONTENT_URL または NILTO_API_BASE を設定してください。"
   );
-} else {
-  try {
-    const res = await fetch(contentUrl, {
-      headers: {
-        "X-NILTO-API-KEY": apiKey,
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error(`NILTO API エラー: ${res.status} ${res.statusText}`);
-    }
-
-    const parsed = await res.json();
-    if (parsed && typeof parsed === "object") {
-      data = {
-        ...fallbackData,
-        ...parsed,
-      };
-    }
-  } catch (error) {
-    console.error("NILTO コンテンツの取得に失敗したため、フォールバック表示を使用します。", error);
-  }
 }
 
 const title = data._title ?? fallbackData._title;
@@ -49,6 +31,13 @@ const mainImage = data.main_image;
 const imageUrl = mainImage?.url ?? "";
 const imageAlt = mainImage?.alt || fallbackData.hamu_name;
 const skills = (data.skills ?? []).map((s: { skill_name?: string }) => s?.skill_name ?? "").filter(Boolean);
+
+const photoItems = await fetchPhotoDayList();
+const linkedDates = new Set(distinctShootDates(photoItems));
+
+const now = new Date();
+const calYear = now.getFullYear();
+const calMonth = now.getMonth();
 ---
 
 <Layout title={title}>
@@ -56,11 +45,19 @@ const skills = (data.skills ?? []).map((s: { skill_name?: string }) => s?.skill_
     <p>{description}</p>
     {imageUrl && <img src={imageUrl} alt={imageAlt} width="300" />}
 
-    <hr />
-    <h2>とくいなこと</h2>
+    <h2 class="skills-heading">とくいなこと</h2>
     <p class="skill-list">
       {skills.map((skill) => <span class="skill-tag">{skill}</span>)}
     </p>
+
+    <hr />
+    <section class="top-calendar" aria-labelledby="top-calendar-title">
+      <h2 id="top-calendar-title" class="top-calendar-title">ぽこちゃんのアルバム</h2>
+      <p class="top-calendar-lead">
+        写真がある日だけ日付がリンクになります。タップするとその日のギャラリーページへ移動します。
+      </p>
+      <Calendar linkedDates={linkedDates} year={calYear} month={calMonth} />
+    </section>
 
     <hr />
     <a href="/about" class="plain-link">飼い主について　→</a>

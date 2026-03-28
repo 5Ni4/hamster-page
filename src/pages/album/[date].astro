@@ -1,0 +1,52 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import {
+  fetchPhotoDayList,
+  groupPhotoDaysByDate,
+  mergePhotosForDate,
+  distinctShootDates,
+  formatJapaneseAlbumHeading,
+  type PhotoForAlbum,
+} from "../../lib/nilto";
+
+export async function getStaticPaths() {
+  const items = await fetchPhotoDayList();
+  const dates = distinctShootDates(items);
+  const grouped = groupPhotoDaysByDate(items);
+
+  return dates.map((date) => ({
+    params: { date },
+    props: {
+      photos: mergePhotosForDate(grouped.get(date) ?? []),
+    },
+  }));
+}
+
+interface AlbumPageProps {
+  photos: PhotoForAlbum[];
+}
+
+const dateParam = Astro.params.date;
+const { photos } = Astro.props as AlbumPageProps;
+
+const heading = dateParam ? formatJapaneseAlbumHeading(dateParam) : "";
+const title = dateParam ? `${heading} のアルバム` : "アルバム";
+---
+
+<Layout title={title}>
+  <p><a href="/" class="plain-link">← トップへ</a></p>
+  <h2 class="album-page-heading">{heading}</h2>
+  {
+    photos.length === 0 ? (
+      <p>この日の写真はまだありません。</p>
+    ) : (
+      <ul class="album-grid">
+        {photos.map((p) => (
+          <li class="album-grid__item">
+            <img src={p.url} alt={p.alt} loading="lazy" decoding="async" width="400" height="400" />
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</Layout>

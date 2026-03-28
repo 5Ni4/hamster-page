@@ -171,3 +171,76 @@ GET https://cms-api.nilto.com/v1/contents?model=top_page&limit=1
 4. Astro 側で NILTO の GET API を呼び、取得したデータで `index.astro` をレンダリングするよう変更
 
 必要なら、Astro 側の実装例（fetch とマッピング）も別ファイルでまとめられます。
+
+---
+
+## 8. モデル `album`（日別アルバム・カレンダー用）
+
+撮影日ごとに 1 コンテンツを作成し、その日の画像を繰り返しフィールドに並べます。サイト側では一覧 API で取得し、トップのカレンダーと `/album/YYYY-MM-DD` のアルバムページに利用します。
+
+### モデル（コンテンツタイプ）
+
+| 項目 | 値 | 説明 |
+|------|-----|------|
+| **モデル LUID** | `album` | 英小文字・数字・アンダースコアのみ |
+| **表示名** | 撮影日アルバム（任意） | 管理画面用 |
+
+### フィールド一覧
+
+| 順序 | フィールドLUID | 表示名 | フィールド種類 | 必須 | 説明 |
+|------|----------------|--------|----------------|------|------|
+| 1 | `shoot_date` | 撮影日 | **日付**（なければ **1行テキスト** で `YYYY-MM-DD`） | ○ | カレンダーと URL 用 |
+| 2 | `photos` | 写真（繰り返し） | **繰り返し** | △ | その日の画像 |
+
+#### 繰り返し `photos` の内包フィールド
+
+| フィールドLUID | 表示名 | フィールド種類 | 説明 |
+|----------------|--------|----------------|------|
+| `image` | 画像 | **メディア** | 表示用 URL・alt |
+| `alt` | 代替テキスト | **1行テキスト**（任意） | `image.alt` の補足 |
+
+### 取得 API
+
+一覧（サイトはビルド時に全件または十分な `limit` で取得し、日付でグループ化）:
+
+```
+GET https://cms-api.nilto.com/v1/contents?model=album&limit=100&offset=0
+```
+
+ヘッダ: `X-NILTO-API-KEY: <APIキー>`
+
+**一覧レスポンスの形**は API バージョンにより配列直返却の場合と、`contents` / `data` などに配列が入る場合があります。Astro 側の `src/lib/nilto.ts` で複数形に対応しています。
+
+### レスポンス例（1件・イメージ）
+
+```json
+{
+  "_id": 9876543210,
+  "_model": "album",
+  "_title": "2025-03-29 のぽこちゃん",
+  "_status": "published",
+  "shoot_date": "2025-03-29",
+  "photos": [
+    {
+      "image": { "url": "https://cms-assets.nilto.com/.../1.jpg", "alt": "ぽこちゃん" },
+      "alt": "ぽこちゃん"
+    }
+  ]
+}
+```
+
+※ `shoot_date` が `2025-03-29T00:00:00.000Z` 形式で返る場合も、サイト側で `YYYY-MM-DD` に正規化します。
+
+※ **一覧 API** ではカスタムフィールドが省略される場合があります。そのときは先頭が `YYYY-MM-DD` になるよう **`_title`** を付けておくと、サイト側が日付として認識します（`shoot_date` があればそちらを優先）。
+
+### 環境変数（Astro）
+
+| 変数 | 必須 | 説明 |
+|------|------|------|
+| `NILTO_API_KEY` | 推奨 | 読み取り API キー |
+| `NILTO_API_BASE` | 推奨 | 例: `https://cms-api.nilto.com/v1`（末尾スラッシュなし）。**未設定でも** `NILTO_CONTENT_URL` が `.../v1/contents/...` 形式なら、そこからベース URL を推測して `album` 一覧を取得します |
+| `NILTO_CONTENT_URL` | 任意 | **トップページ単体**の GET URL。設定時は `top_page` 取得に優先。パスに `contents` が含まれる場合、`album` 一覧用の API ベース推測にも使います |
+| `NILTO_ALBUM_LIST_URL` | 任意 | **案B**: `album` 一覧の完全 URL。未設定時はコード側が `limit=100` と `offset` でページング取得（公式は **limit 最大 100**） |
+| `NILTO_PHOTO_DAY_LIST_URL` | 任意 | 旧名の互換。`NILTO_ALBUM_LIST_URL` と同じ（どちらか一方を設定） |
+
+API キーだけで **`NILTO_CONTENT_URL` も `NILTO_API_BASE` も無い**、または **URL が `.../contents/...` 形式で推測できない**場合は `album` 一覧は取得できません。`NILTO_API_BASE` の明示設定が確実です。

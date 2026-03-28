@@ -32,7 +32,8 @@ const { title } = Astro.props;
   }
 
   h1,
-  h2 {
+  h2,
+  h3 {
     color: #df7bba;
   }
 
@@ -93,5 +94,107 @@ const { title } = Astro.props;
     border: none;
     border-top: 3px dashed #df7bba;
     margin: 1.5rem 0;
+  }
+
+  .top-calendar {
+    margin: 0.25rem 0 0;
+  }
+
+  .top-calendar-title {
+    margin: 0 0 0.35rem;
+    font-size: 1.25rem;
+  }
+
+  .top-calendar-lead {
+    margin: 0 0 0.85rem;
+    font-size: 0.9rem;
+    color: #39426b;
+    line-height: 1.55;
+  }
+
+  .skills-heading {
+    margin: 1.25rem 0 0.5rem;
+    font-size: 1.15rem;
+  }
+
+  .calendar-section {
+    margin-bottom: 0.5rem;
+  }
+
+  .calendar-heading {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    font-weight: bold;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    max-width: 100%;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .calendar-dow {
+    font-weight: bold;
+    color: #39426b;
+    padding: 0.2rem 0;
+  }
+
+  .calendar-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2rem;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+
+  .calendar-cell--empty {
+    min-height: 2rem;
+    pointer-events: none;
+  }
+
+  .calendar-cell--muted {
+    color: #888;
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  .calendar-cell--link {
+    background-color: #fff6d0;
+    border: 2px dashed #df7bba;
+    color: #df7bba;
+    font-weight: bold;
+    text-decoration: none;
+  }
+
+  .calendar-cell--link:hover {
+    background-color: #ffe8f0;
+  }
+
+  .album-page-heading {
+    margin-top: 0.5rem;
+  }
+
+  .album-grid {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .album-grid__item {
+    margin: 0;
+  }
+
+  .album-grid__item img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: cover;
+    margin: 0;
   }
 </style>

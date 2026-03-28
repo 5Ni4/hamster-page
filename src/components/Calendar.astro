@@ -1,0 +1,55 @@
+---
+/** 月曜始まり（ISO 週と同じ並び） */
+const weekdays = ["月", "火", "水", "木", "金", "土", "日"] as const;
+
+interface Props {
+  /** 撮影日がある日のみリンクにする（YYYY-MM-DD） */
+  linkedDates: Set<string> | string[];
+  year: number;
+  /** 0–11 */
+  month: number;
+}
+
+const { linkedDates, year, month } = Astro.props;
+const linked = linkedDates instanceof Set ? linkedDates : new Set(linkedDates);
+
+const first = new Date(year, month, 1);
+const lastDay = new Date(year, month + 1, 0).getDate();
+/** getDay: 日=0 … 土=6 → 月曜左端用の空セル数 */
+const startPad = (first.getDay() + 6) % 7;
+
+type Cell =
+  | { kind: "empty" }
+  | { kind: "day"; day: number; iso: string; hasAlbum: boolean };
+
+const cells: Cell[] = [];
+for (let i = 0; i < startPad; i++) {
+  cells.push({ kind: "empty" });
+}
+for (let d = 1; d <= lastDay; d++) {
+  const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  cells.push({ kind: "day", day: d, iso, hasAlbum: linked.has(iso) });
+}
+---
+
+<section class="calendar-section" aria-label={`${year}年${month + 1}月のカレンダー`}>
+  <h3 class="calendar-heading">{year}年{month + 1}月</h3>
+  <div class="calendar-grid">
+    {weekdays.map((w) => (
+      <div class="calendar-dow">{w}</div>
+    ))}
+    {
+      cells.map((c) =>
+        c.kind === "empty" ? (
+          <div class="calendar-cell calendar-cell--empty" />
+        ) : c.hasAlbum ? (
+          <a class="calendar-cell calendar-cell--link" href={`/album/${c.iso}`}>
+            {c.day}
+          </a>
+        ) : (
+          <span class="calendar-cell calendar-cell--muted">{c.day}</span>
+        )
+      )
+    }
+  </div>
+</section>
