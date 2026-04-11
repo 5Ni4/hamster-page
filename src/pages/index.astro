@@ -71,12 +71,32 @@ function calendarHref(fullYear: number, month1to12: number): string {
   return `${Astro.url.pathname}?${q.toString()}`;
 }
 
-const prevMonthDate = new Date(calYear, calMonth - 1, 1);
-const nextMonthDate = new Date(calYear, calMonth + 1, 1);
-const calendarPrevHref = calendarHref(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1);
-const calendarNextHref = calendarHref(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1);
-const calendarPrevNavLabel = `${prevMonthDate.getFullYear()}年${prevMonthDate.getMonth() + 1}月へ`;
-const calendarNextNavLabel = `${nextMonthDate.getFullYear()}年${nextMonthDate.getMonth() + 1}月へ`;
+let prevYear = calYear;
+let prevMonth0 = calMonth - 1;
+if (prevMonth0 < 0) {
+  prevYear--;
+  prevMonth0 = 11;
+}
+if (prevYear < YEAR_MIN) {
+  prevYear = YEAR_MIN;
+  prevMonth0 = 0;
+}
+
+let nextYear = calYear;
+let nextMonth0 = calMonth + 1;
+if (nextMonth0 > 11) {
+  nextYear++;
+  nextMonth0 = 0;
+}
+if (nextYear > YEAR_MAX) {
+  nextYear = YEAR_MAX;
+  nextMonth0 = 11;
+}
+
+const calendarPrevHref = calendarHref(prevYear, prevMonth0 + 1);
+const calendarNextHref = calendarHref(nextYear, nextMonth0 + 1);
+const calendarPrevNavLabel = `${prevYear}年${prevMonth0 + 1}月へ`;
+const calendarNextNavLabel = `${nextYear}年${nextMonth0 + 1}月へ`;
 ---
 
 <Layout title={title}>

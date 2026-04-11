@@ -177,12 +177,30 @@ for (let d = 1; d <= lastDay; d++) {
       );
 
       const showNav = root.dataset.showMonthNav === "true";
-      const prevD = new Date(calYear, calMonth - 1, 1);
-      const nextD = new Date(calYear, calMonth + 1, 1);
-      const prevHref = monthHref(pathname, prevD.getFullYear(), prevD.getMonth());
-      const nextHref = monthHref(pathname, nextD.getFullYear(), nextD.getMonth());
-      const prevNavLabel = `${prevD.getFullYear()}年${prevD.getMonth() + 1}月へ`;
-      const nextNavLabel = `${nextD.getFullYear()}年${nextD.getMonth() + 1}月へ`;
+      let prevYear = calYear;
+      let prevMonth0 = calMonth - 1;
+      if (prevMonth0 < 0) {
+        prevYear--;
+        prevMonth0 = 11;
+      }
+      if (prevYear < YEAR_MIN) {
+        prevYear = YEAR_MIN;
+        prevMonth0 = 0;
+      }
+      let nextYear = calYear;
+      let nextMonth0 = calMonth + 1;
+      if (nextMonth0 > 11) {
+        nextYear++;
+        nextMonth0 = 0;
+      }
+      if (nextYear > YEAR_MAX) {
+        nextYear = YEAR_MAX;
+        nextMonth0 = 11;
+      }
+      const prevHref = monthHref(pathname, prevYear, prevMonth0);
+      const nextHref = monthHref(pathname, nextYear, nextMonth0);
+      const prevNavLabel = `${prevYear}年${prevMonth0 + 1}月へ`;
+      const nextNavLabel = `${nextYear}年${nextMonth0 + 1}月へ`;
 
       if (showNav) {
         let row = root.querySelector("[data-calendar-heading-row]");
