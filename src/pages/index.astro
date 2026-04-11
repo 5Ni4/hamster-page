@@ -37,6 +37,8 @@ const linkedDates = new Set(distinctShootDates(photoItems));
 
 const YEAR_MIN = 1900;
 const YEAR_MAX = 2100;
+const YEAR_INT_RE = /^-?\d+$/;
+const MONTH_INT_RE = /^\d+$/;
 
 const now = new Date();
 let calYear = now.getFullYear();
@@ -45,18 +47,20 @@ let calMonth = now.getMonth();
 const yRaw = Astro.url.searchParams.get("y");
 const mRaw = Astro.url.searchParams.get("m");
 if (yRaw != null && yRaw !== "" && mRaw != null && mRaw !== "") {
-  const yParsed = Number.parseInt(yRaw, 10);
-  const mParsed = Number.parseInt(mRaw, 10);
-  if (
-    Number.isFinite(yParsed) &&
-    yParsed >= YEAR_MIN &&
-    yParsed <= YEAR_MAX &&
-    Number.isFinite(mParsed) &&
-    mParsed >= 1 &&
-    mParsed <= 12
-  ) {
-    calYear = yParsed;
-    calMonth = mParsed - 1;
+  if (YEAR_INT_RE.test(yRaw) && MONTH_INT_RE.test(mRaw)) {
+    const yParsed = Number(yRaw);
+    const mParsed = Number(mRaw);
+    if (
+      Number.isInteger(yParsed) &&
+      yParsed >= YEAR_MIN &&
+      yParsed <= YEAR_MAX &&
+      Number.isInteger(mParsed) &&
+      mParsed >= 1 &&
+      mParsed <= 12
+    ) {
+      calYear = yParsed;
+      calMonth = mParsed - 1;
+    }
   }
 }
 
