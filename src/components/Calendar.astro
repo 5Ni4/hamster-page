@@ -154,118 +154,120 @@ for (let d = 1; d <= lastDay; d++) {
     }
 
     function syncCalendar() {
-      const root = document.querySelector("[data-calendar-root]");
-      if (!(root instanceof HTMLElement)) return;
+      const roots = document.querySelectorAll("[data-calendar-root]");
+      for (const root of roots) {
+        if (!(root instanceof HTMLElement)) continue;
 
-      let linkedArr = [];
-      try {
-        linkedArr = JSON.parse(root.dataset.linkedDates || "[]");
-      } catch {
-        return;
-      }
-      const linked = new Set(
-        Array.isArray(linkedArr) ? linkedArr.map(String) : []
-      );
+        let linkedArr = [];
+        try {
+          linkedArr = JSON.parse(root.dataset.linkedDates || "[]");
+        } catch {
+          continue;
+        }
+        const linked = new Set(
+          Array.isArray(linkedArr) ? linkedArr.map(String) : []
+        );
 
-      const url = new URL(window.location.href);
-      const { calYear, calMonth } = parseCalFromUrl(url);
-      const pathname = url.pathname || "/";
+        const url = new URL(window.location.href);
+        const { calYear, calMonth } = parseCalFromUrl(url);
+        const pathname = url.pathname || "/";
 
-      root.setAttribute(
-        "aria-label",
-        `${calYear}年${calMonth + 1}月のカレンダー`
-      );
+        root.setAttribute(
+          "aria-label",
+          `${calYear}年${calMonth + 1}月のカレンダー`
+        );
 
-      const showNav = root.dataset.showMonthNav === "true";
-      let prevYear = calYear;
-      let prevMonth0 = calMonth - 1;
-      if (prevMonth0 < 0) {
-        prevYear--;
-        prevMonth0 = 11;
-      }
-      if (prevYear < YEAR_MIN) {
-        prevYear = YEAR_MIN;
-        prevMonth0 = 0;
-      }
-      let nextYear = calYear;
-      let nextMonth0 = calMonth + 1;
-      if (nextMonth0 > 11) {
-        nextYear++;
-        nextMonth0 = 0;
-      }
-      if (nextYear > YEAR_MAX) {
-        nextYear = YEAR_MAX;
-        nextMonth0 = 11;
-      }
-      const prevHref = monthHref(pathname, prevYear, prevMonth0);
-      const nextHref = monthHref(pathname, nextYear, nextMonth0);
-      const prevNavLabel = `${prevYear}年${prevMonth0 + 1}月へ`;
-      const nextNavLabel = `${nextYear}年${nextMonth0 + 1}月へ`;
+        const showNav = root.dataset.showMonthNav === "true";
+        let prevYear = calYear;
+        let prevMonth0 = calMonth - 1;
+        if (prevMonth0 < 0) {
+          prevYear--;
+          prevMonth0 = 11;
+        }
+        if (prevYear < YEAR_MIN) {
+          prevYear = YEAR_MIN;
+          prevMonth0 = 0;
+        }
+        let nextYear = calYear;
+        let nextMonth0 = calMonth + 1;
+        if (nextMonth0 > 11) {
+          nextYear++;
+          nextMonth0 = 0;
+        }
+        if (nextYear > YEAR_MAX) {
+          nextYear = YEAR_MAX;
+          nextMonth0 = 11;
+        }
+        const prevHref = monthHref(pathname, prevYear, prevMonth0);
+        const nextHref = monthHref(pathname, nextYear, nextMonth0);
+        const prevNavLabel = `${prevYear}年${prevMonth0 + 1}月へ`;
+        const nextNavLabel = `${nextYear}年${nextMonth0 + 1}月へ`;
 
-      if (showNav) {
-        let row = root.querySelector("[data-calendar-heading-row]");
-        if (!(row instanceof HTMLElement)) {
-          const only = root.querySelector("[data-calendar-heading-only]");
-          only?.remove();
-          row = document.createElement("div");
-          row.className = "calendar-heading-row";
-          row.setAttribute("data-calendar-heading-row", "");
-          const grid = root.querySelector("[data-calendar-grid]");
-          grid?.before(row);
-          row.innerHTML = `
+        if (showNav) {
+          let row = root.querySelector("[data-calendar-heading-row]");
+          if (!(row instanceof HTMLElement)) {
+            const only = root.querySelector("[data-calendar-heading-only]");
+            only?.remove();
+            row = document.createElement("div");
+            row.className = "calendar-heading-row";
+            row.setAttribute("data-calendar-heading-row", "");
+            const grid = root.querySelector("[data-calendar-grid]");
+            grid?.before(row);
+            row.innerHTML = `
             <a class="calendar-nav calendar-nav--prev" href="${escapeAttr(prevHref)}" aria-label="${escapeAttr(prevNavLabel)}">← 前月</a>
             <h3 class="calendar-heading">${calYear}年${calMonth + 1}月</h3>
             <a class="calendar-nav calendar-nav--next" href="${escapeAttr(nextHref)}" aria-label="${escapeAttr(nextNavLabel)}">次月 →</a>
           `;
-        } else {
-          const prevA = row.querySelector(".calendar-nav--prev");
-          const nextA = row.querySelector(".calendar-nav--next");
-          const h3 = row.querySelector(".calendar-heading");
-          if (prevA instanceof HTMLAnchorElement) {
-            prevA.href = prevHref;
-            prevA.setAttribute("aria-label", prevNavLabel);
+          } else {
+            const prevA = row.querySelector(".calendar-nav--prev");
+            const nextA = row.querySelector(".calendar-nav--next");
+            const h3 = row.querySelector(".calendar-heading");
+            if (prevA instanceof HTMLAnchorElement) {
+              prevA.href = prevHref;
+              prevA.setAttribute("aria-label", prevNavLabel);
+            }
+            if (nextA instanceof HTMLAnchorElement) {
+              nextA.href = nextHref;
+              nextA.setAttribute("aria-label", nextNavLabel);
+            }
+            if (h3) h3.textContent = `${calYear}年${calMonth + 1}月`;
           }
-          if (nextA instanceof HTMLAnchorElement) {
-            nextA.href = nextHref;
-            nextA.setAttribute("aria-label", nextNavLabel);
-          }
-          if (h3) h3.textContent = `${calYear}年${calMonth + 1}月`;
-        }
-      } else {
-        const row = root.querySelector("[data-calendar-heading-row]");
-        row?.remove();
-        let h3 = root.querySelector("[data-calendar-heading-only]");
-        if (!(h3 instanceof HTMLElement)) {
-          h3 = document.createElement("h3");
-          h3.className = "calendar-heading";
-          h3.setAttribute("data-calendar-heading-only", "");
-          const grid = root.querySelector("[data-calendar-grid]");
-          grid?.before(h3);
-        }
-        h3.textContent = `${calYear}年${calMonth + 1}月`;
-      }
-
-      const grid = root.querySelector("[data-calendar-grid]");
-      if (!(grid instanceof HTMLElement)) return;
-
-      const cells = buildCells(calYear, calMonth, linked);
-      const parts = weekdays.map(
-        (w) => `<div class="calendar-dow">${w}</div>`
-      );
-      for (const c of cells) {
-        if (c.kind === "empty") {
-          parts.push('<div class="calendar-cell calendar-cell--empty"></div>');
-        } else if (c.hasAlbum) {
-          parts.push(
-            `<a class="calendar-cell calendar-cell--link" href="/album/${escapeAttr(c.iso)}">${c.day}</a>`
-          );
         } else {
-          parts.push(
-            `<span class="calendar-cell calendar-cell--muted">${c.day}</span>`
-          );
+          const row = root.querySelector("[data-calendar-heading-row]");
+          row?.remove();
+          let h3 = root.querySelector("[data-calendar-heading-only]");
+          if (!(h3 instanceof HTMLElement)) {
+            h3 = document.createElement("h3");
+            h3.className = "calendar-heading";
+            h3.setAttribute("data-calendar-heading-only", "");
+            const grid = root.querySelector("[data-calendar-grid]");
+            grid?.before(h3);
+          }
+          h3.textContent = `${calYear}年${calMonth + 1}月`;
         }
+
+        const grid = root.querySelector("[data-calendar-grid]");
+        if (!(grid instanceof HTMLElement)) continue;
+
+        const cells = buildCells(calYear, calMonth, linked);
+        const parts = weekdays.map(
+          (w) => `<div class="calendar-dow">${w}</div>`
+        );
+        for (const c of cells) {
+          if (c.kind === "empty") {
+            parts.push('<div class="calendar-cell calendar-cell--empty"></div>');
+          } else if (c.hasAlbum) {
+            parts.push(
+              `<a class="calendar-cell calendar-cell--link" href="/album/${escapeAttr(c.iso)}">${c.day}</a>`
+            );
+          } else {
+            parts.push(
+              `<span class="calendar-cell calendar-cell--muted">${c.day}</span>`
+            );
+          }
+        }
+        grid.innerHTML = parts.join("");
       }
-      grid.innerHTML = parts.join("");
     }
 
     syncCalendar();
