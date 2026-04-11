@@ -271,7 +271,13 @@ for (let d = 1; d <= lastDay; d++) {
     }
 
     syncCalendar();
-    window.addEventListener("popstate", syncCalendar);
-    document.addEventListener("astro:page-load", syncCalendar);
+    const g = globalThis as typeof globalThis & {
+      __calendarSyncListenersRegistered?: boolean;
+    };
+    if (!g.__calendarSyncListenersRegistered) {
+      g.__calendarSyncListenersRegistered = true;
+      window.addEventListener("popstate", syncCalendar);
+      document.addEventListener("astro:page-load", syncCalendar);
+    }
   })();
 </script>
