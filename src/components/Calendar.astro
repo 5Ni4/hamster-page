@@ -99,12 +99,29 @@ for (let d = 1; d <= lastDay; d++) {
         .replace(/</g, "&lt;");
     }
 
-    /** @param {number} y @param {number} m0 */
-    function monthHref(pathname, y, m0) {
-      const q = new URLSearchParams();
-      q.set("y", String(y));
-      q.set("m", String(m0 + 1));
-      return `${pathname}?${q.toString()}`;
+    /**
+     * 既存ナビの href を URL 解析し、y / m だけ更新して pathname・他クエリ・hash を保つ。
+     * @param {string | null | undefined} baseHrefAttr getAttribute('href')
+     * @param {number} y
+     * @param {number} m0 0–11
+     */
+    function monthNavHrefFromBase(baseHrefAttr, y, m0) {
+      const origin = window.location.origin;
+      const trimmed =
+        baseHrefAttr != null ? String(baseHrefAttr).trim() : "";
+      let u;
+      if (trimmed !== "") {
+        try {
+          u = new URL(trimmed, origin);
+        } catch {
+          u = new URL(window.location.href);
+        }
+      } else {
+        u = new URL(window.location.href);
+      }
+      u.searchParams.set("y", String(y));
+      u.searchParams.set("m", String(m0 + 1));
+      return `${u.pathname}${u.search}${u.hash}`;
     }
 
     /** @param {URL} url */
@@ -170,7 +187,6 @@ for (let d = 1; d <= lastDay; d++) {
 
         const url = new URL(window.location.href);
         const { calYear, calMonth } = parseCalFromUrl(url);
-        const pathname = url.pathname || "/";
 
         root.setAttribute(
           "aria-label",
@@ -198,14 +214,14 @@ for (let d = 1; d <= lastDay; d++) {
           nextYear = YEAR_MAX;
           nextMonth0 = 11;
         }
-        const prevHref = monthHref(pathname, prevYear, prevMonth0);
-        const nextHref = monthHref(pathname, nextYear, nextMonth0);
         const prevNavLabel = `${prevYear}年${prevMonth0 + 1}月へ`;
         const nextNavLabel = `${nextYear}年${nextMonth0 + 1}月へ`;
 
         if (showNav) {
           let row = root.querySelector("[data-calendar-heading-row]");
           if (!(row instanceof HTMLElement)) {
+            const prevHref = monthNavHrefFromBase(null, prevYear, prevMonth0);
+            const nextHref = monthNavHrefFromBase(null, nextYear, nextMonth0);
             const only = root.querySelector("[data-calendar-heading-only]");
             only?.remove();
             row = document.createElement("div");
@@ -222,6 +238,16 @@ for (let d = 1; d <= lastDay; d++) {
             const prevA = row.querySelector(".calendar-nav--prev");
             const nextA = row.querySelector(".calendar-nav--next");
             const h3 = row.querySelector(".calendar-heading");
+            const prevBase =
+              prevA instanceof HTMLAnchorElement
+                ? prevA.getAttribute("href")
+                : null;
+            const nextBase =
+              nextA instanceof HTMLAnchorElement
+                ? nextA.getAttribute("href")
+                : null;
+            const prevHref = monthNavHrefFromBase(prevBase, prevYear, prevMonth0);
+            const nextHref = monthNavHrefFromBase(nextBase, nextYear, nextMonth0);
             if (prevA instanceof HTMLAnchorElement) {
               prevA.href = prevHref;
               prevA.setAttribute("aria-label", prevNavLabel);
