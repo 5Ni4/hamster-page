@@ -35,9 +35,68 @@ const skills = (data.skills ?? []).map((s: { skill_name?: string }) => s?.skill_
 const photoItems = await fetchPhotoDayList();
 const linkedDates = new Set(distinctShootDates(photoItems));
 
+const YEAR_MIN = 1900;
+const YEAR_MAX = 2100;
+const YEAR_INT_RE = /^-?\d+$/;
+const MONTH_INT_RE = /^\d+$/;
+
 const now = new Date();
-const calYear = now.getFullYear();
-const calMonth = now.getMonth();
+let calYear = now.getFullYear();
+let calMonth = now.getMonth();
+
+const yRaw = Astro.url.searchParams.get("y");
+const mRaw = Astro.url.searchParams.get("m");
+if (yRaw != null && yRaw !== "" && mRaw != null && mRaw !== "") {
+  if (YEAR_INT_RE.test(yRaw) && MONTH_INT_RE.test(mRaw)) {
+    const yParsed = Number(yRaw);
+    const mParsed = Number(mRaw);
+    if (
+      Number.isInteger(yParsed) &&
+      yParsed >= YEAR_MIN &&
+      yParsed <= YEAR_MAX &&
+      Number.isInteger(mParsed) &&
+      mParsed >= 1 &&
+      mParsed <= 12
+    ) {
+      calYear = yParsed;
+      calMonth = mParsed - 1;
+    }
+  }
+}
+
+function calendarHref(fullYear: number, month1to12: number): string {
+  const q = new URLSearchParams();
+  q.set("y", String(fullYear));
+  q.set("m", String(month1to12));
+  return `${Astro.url.pathname}?${q.toString()}`;
+}
+
+let prevYear = calYear;
+let prevMonth0 = calMonth - 1;
+if (prevMonth0 < 0) {
+  prevYear--;
+  prevMonth0 = 11;
+}
+if (prevYear < YEAR_MIN) {
+  prevYear = YEAR_MIN;
+  prevMonth0 = 0;
+}
+
+let nextYear = calYear;
+let nextMonth0 = calMonth + 1;
+if (nextMonth0 > 11) {
+  nextYear++;
+  nextMonth0 = 0;
+}
+if (nextYear > YEAR_MAX) {
+  nextYear = YEAR_MAX;
+  nextMonth0 = 11;
+}
+
+const calendarPrevHref = calendarHref(prevYear, prevMonth0 + 1);
+const calendarNextHref = calendarHref(nextYear, nextMonth0 + 1);
+const calendarPrevNavLabel = `${prevYear}年${prevMonth0 + 1}月へ`;
+const calendarNextNavLabel = `${nextYear}年${nextMonth0 + 1}月へ`;
 ---
 
 <Layout title={title}>
@@ -56,7 +115,15 @@ const calMonth = now.getMonth();
       <p class="top-calendar-lead">
         写真がある日だけ日付がリンクになります。タップするとその日のギャラリーページへ移動します。
       </p>
-      <Calendar linkedDates={linkedDates} year={calYear} month={calMonth} />
+      <Calendar
+        linkedDates={linkedDates}
+        year={calYear}
+        month={calMonth}
+        prevHref={calendarPrevHref}
+        nextHref={calendarNextHref}
+        prevNavLabel={calendarPrevNavLabel}
+        nextNavLabel={calendarNextNavLabel}
+      />
     </section>
 
     <hr />

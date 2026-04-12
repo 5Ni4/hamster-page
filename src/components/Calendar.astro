@@ -8,10 +8,19 @@ interface Props {
   year: number;
   /** 0–11 */
   month: number;
+  /** トップのクエリ付き URL（例: `/?y=2026&m=4`） */
+  prevHref?: string;
+  nextHref?: string;
+  /** ナビの aria-label（例: 「2026年3月へ」） */
+  prevNavLabel?: string;
+  nextNavLabel?: string;
 }
 
-const { linkedDates, year, month } = Astro.props;
+const { linkedDates, year, month, prevHref, nextHref, prevNavLabel, nextNavLabel } = Astro.props;
+const showMonthNav =
+  Boolean(prevHref && nextHref && prevNavLabel && nextNavLabel);
 const linked = linkedDates instanceof Set ? linkedDates : new Set(linkedDates);
+const linkedDatesJson = JSON.stringify([...linked]);
 
 const first = new Date(year, month, 1);
 const lastDay = new Date(year, month + 1, 0).getDate();
@@ -32,9 +41,29 @@ for (let d = 1; d <= lastDay; d++) {
 }
 ---
 
-<section class="calendar-section" aria-label={`${year}年${month + 1}月のカレンダー`}>
-  <h3 class="calendar-heading">{year}年{month + 1}月</h3>
-  <div class="calendar-grid">
+<section
+  class="calendar-section"
+  aria-label={`${year}年${month + 1}月のカレンダー`}
+  data-calendar-root
+  data-show-month-nav={showMonthNav ? "true" : "false"}
+  data-linked-dates={linkedDatesJson}
+>
+  {
+    showMonthNav ? (
+      <div class="calendar-heading-row" data-calendar-heading-row>
+        <a class="calendar-nav calendar-nav--prev" href={prevHref} aria-label={prevNavLabel}>
+          ← 前月
+        </a>
+        <h3 class="calendar-heading">{year}年{month + 1}月</h3>
+        <a class="calendar-nav calendar-nav--next" href={nextHref} aria-label={nextNavLabel}>
+          次月 →
+        </a>
+      </div>
+    ) : (
+      <h3 class="calendar-heading" data-calendar-heading-only>{year}年{month + 1}月</h3>
+    )
+  }
+  <div class="calendar-grid" data-calendar-grid>
     {weekdays.map((w) => (
       <div class="calendar-dow">{w}</div>
     ))}
@@ -53,3 +82,228 @@ for (let d = 1; d <= lastDay; d++) {
     }
   </div>
 </section>
+
+<script>
+  (function () {
+    const YEAR_MIN = 1900;
+    const YEAR_MAX = 2100;
+    const YEAR_INT_RE = /^-?\d+$/;
+    const MONTH_INT_RE = /^\d+$/;
+    const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
+
+    /** @param {string} s */
+    function escapeAttr(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;");
+    }
+
+    /**
+     * 既存ナビの href を URL 解析し、y / m だけ更新して pathname・他クエリ・hash を保つ。
+     * @param {string | null | undefined} baseHrefAttr getAttribute('href')
+     * @param {number} y
+     * @param {number} m0 0–11
+     */
+    function monthNavHrefFromBase(baseHrefAttr, y, m0) {
+      const origin = window.location.origin;
+      const trimmed =
+        baseHrefAttr != null ? String(baseHrefAttr).trim() : "";
+      let u;
+      if (trimmed !== "") {
+        try {
+          u = new URL(trimmed, origin);
+        } catch {
+          u = new URL(window.location.href);
+        }
+      } else {
+        u = new URL(window.location.href);
+      }
+      u.searchParams.set("y", String(y));
+      u.searchParams.set("m", String(m0 + 1));
+      return `${u.pathname}${u.search}${u.hash}`;
+    }
+
+    /** @param {URL} url */
+    function parseCalFromUrl(url) {
+      const now = new Date();
+      let calYear = now.getFullYear();
+      let calMonth = now.getMonth();
+      const yRaw = url.searchParams.get("y");
+      const mRaw = url.searchParams.get("m");
+      if (yRaw != null && yRaw !== "" && mRaw != null && mRaw !== "") {
+        if (YEAR_INT_RE.test(yRaw) && MONTH_INT_RE.test(mRaw)) {
+          const yParsed = Number(yRaw);
+          const mParsed = Number(mRaw);
+          if (
+            Number.isInteger(yParsed) &&
+            yParsed >= YEAR_MIN &&
+            yParsed <= YEAR_MAX &&
+            Number.isInteger(mParsed) &&
+            mParsed >= 1 &&
+            mParsed <= 12
+          ) {
+            calYear = yParsed;
+            calMonth = mParsed - 1;
+          }
+        }
+      }
+      return { calYear, calMonth };
+    }
+
+    /**
+     * @param {number} year
+     * @param {number} month
+     * @param {Set<string>} linked
+     */
+    function buildCells(year, month, linked) {
+      const first = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const startPad = (first.getDay() + 6) % 7;
+      /** @type {Array<{ kind: 'empty' } | { kind: 'day'; day: number; iso: string; hasAlbum: boolean }>} */
+      const cells = [];
+      for (let i = 0; i < startPad; i++) cells.push({ kind: "empty" });
+      for (let d = 1; d <= lastDay; d++) {
+        const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        cells.push({ kind: "day", day: d, iso, hasAlbum: linked.has(iso) });
+      }
+      return cells;
+    }
+
+    function syncCalendar() {
+      const roots = document.querySelectorAll("[data-calendar-root]");
+      for (const root of roots) {
+        if (!(root instanceof HTMLElement)) continue;
+
+        let linkedArr = [];
+        try {
+          linkedArr = JSON.parse(root.dataset.linkedDates || "[]");
+        } catch {
+          continue;
+        }
+        const linked = new Set(
+          Array.isArray(linkedArr) ? linkedArr.map(String) : []
+        );
+
+        const url = new URL(window.location.href);
+        const { calYear, calMonth } = parseCalFromUrl(url);
+
+        root.setAttribute(
+          "aria-label",
+          `${calYear}年${calMonth + 1}月のカレンダー`
+        );
+
+        const showNav = root.dataset.showMonthNav === "true";
+        let prevYear = calYear;
+        let prevMonth0 = calMonth - 1;
+        if (prevMonth0 < 0) {
+          prevYear--;
+          prevMonth0 = 11;
+        }
+        if (prevYear < YEAR_MIN) {
+          prevYear = YEAR_MIN;
+          prevMonth0 = 0;
+        }
+        let nextYear = calYear;
+        let nextMonth0 = calMonth + 1;
+        if (nextMonth0 > 11) {
+          nextYear++;
+          nextMonth0 = 0;
+        }
+        if (nextYear > YEAR_MAX) {
+          nextYear = YEAR_MAX;
+          nextMonth0 = 11;
+        }
+        const prevNavLabel = `${prevYear}年${prevMonth0 + 1}月へ`;
+        const nextNavLabel = `${nextYear}年${nextMonth0 + 1}月へ`;
+
+        if (showNav) {
+          let row = root.querySelector("[data-calendar-heading-row]");
+          if (!(row instanceof HTMLElement)) {
+            const prevHref = monthNavHrefFromBase(null, prevYear, prevMonth0);
+            const nextHref = monthNavHrefFromBase(null, nextYear, nextMonth0);
+            const only = root.querySelector("[data-calendar-heading-only]");
+            only?.remove();
+            row = document.createElement("div");
+            row.className = "calendar-heading-row";
+            row.setAttribute("data-calendar-heading-row", "");
+            const grid = root.querySelector("[data-calendar-grid]");
+            grid?.before(row);
+            row.innerHTML = `
+            <a class="calendar-nav calendar-nav--prev" href="${escapeAttr(prevHref)}" aria-label="${escapeAttr(prevNavLabel)}">← 前月</a>
+            <h3 class="calendar-heading">${calYear}年${calMonth + 1}月</h3>
+            <a class="calendar-nav calendar-nav--next" href="${escapeAttr(nextHref)}" aria-label="${escapeAttr(nextNavLabel)}">次月 →</a>
+          `;
+          } else {
+            const prevA = row.querySelector(".calendar-nav--prev");
+            const nextA = row.querySelector(".calendar-nav--next");
+            const h3 = row.querySelector(".calendar-heading");
+            const prevBase =
+              prevA instanceof HTMLAnchorElement
+                ? prevA.getAttribute("href")
+                : null;
+            const nextBase =
+              nextA instanceof HTMLAnchorElement
+                ? nextA.getAttribute("href")
+                : null;
+            const prevHref = monthNavHrefFromBase(prevBase, prevYear, prevMonth0);
+            const nextHref = monthNavHrefFromBase(nextBase, nextYear, nextMonth0);
+            if (prevA instanceof HTMLAnchorElement) {
+              prevA.href = prevHref;
+              prevA.setAttribute("aria-label", prevNavLabel);
+            }
+            if (nextA instanceof HTMLAnchorElement) {
+              nextA.href = nextHref;
+              nextA.setAttribute("aria-label", nextNavLabel);
+            }
+            if (h3) h3.textContent = `${calYear}年${calMonth + 1}月`;
+          }
+        } else {
+          const row = root.querySelector("[data-calendar-heading-row]");
+          row?.remove();
+          let h3 = root.querySelector("[data-calendar-heading-only]");
+          if (!(h3 instanceof HTMLElement)) {
+            h3 = document.createElement("h3");
+            h3.className = "calendar-heading";
+            h3.setAttribute("data-calendar-heading-only", "");
+            const grid = root.querySelector("[data-calendar-grid]");
+            grid?.before(h3);
+          }
+          h3.textContent = `${calYear}年${calMonth + 1}月`;
+        }
+
+        const grid = root.querySelector("[data-calendar-grid]");
+        if (!(grid instanceof HTMLElement)) continue;
+
+        const cells = buildCells(calYear, calMonth, linked);
+        const parts = weekdays.map(
+          (w) => `<div class="calendar-dow">${w}</div>`
+        );
+        for (const c of cells) {
+          if (c.kind === "empty") {
+            parts.push('<div class="calendar-cell calendar-cell--empty"></div>');
+          } else if (c.hasAlbum) {
+            parts.push(
+              `<a class="calendar-cell calendar-cell--link" href="/album/${escapeAttr(c.iso)}">${c.day}</a>`
+            );
+          } else {
+            parts.push(
+              `<span class="calendar-cell calendar-cell--muted">${c.day}</span>`
+            );
+          }
+        }
+        grid.innerHTML = parts.join("");
+      }
+    }
+
+    syncCalendar();
+    const g = globalThis as typeof globalThis & {
+      __calendarSyncListenersRegistered?: boolean;
+    };
+    if (!g.__calendarSyncListenersRegistered) {
+      g.__calendarSyncListenersRegistered = true;
+      window.addEventListener("popstate", syncCalendar);
+      document.addEventListener("astro:page-load", syncCalendar);
+    }
+  })();
+</script>
