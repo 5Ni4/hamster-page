@@ -4,32 +4,15 @@ import {
   fetchPhotoDayList,
   groupPhotoDaysByDate,
   mergePhotosForDate,
-  distinctShootDates,
   formatJapaneseAlbumHeading,
   albumThumbFrameStyle,
   albumThumbUsesLockedAspect,
-  type PhotoForAlbum,
 } from "../../lib/nilto";
 
-export async function getStaticPaths() {
-  const items = await fetchPhotoDayList();
-  const dates = distinctShootDates(items);
-  const grouped = groupPhotoDaysByDate(items);
-
-  return dates.map((date) => ({
-    params: { date },
-    props: {
-      photos: mergePhotosForDate(grouped.get(date) ?? []),
-    },
-  }));
-}
-
-interface AlbumPageProps {
-  photos: PhotoForAlbum[];
-}
-
 const dateParam = Astro.params.date;
-const { photos } = Astro.props as AlbumPageProps;
+const items = await fetchPhotoDayList();
+const grouped = groupPhotoDaysByDate(items);
+const photos = dateParam ? mergePhotosForDate(grouped.get(dateParam) ?? []) : [];
 
 const heading = dateParam ? formatJapaneseAlbumHeading(dateParam) : "";
 const title = dateParam ? `${heading} のアルバム` : "アルバム";
