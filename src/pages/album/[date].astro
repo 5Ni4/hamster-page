@@ -104,6 +104,7 @@ const photoCountLabel = photoCount === 0 ? "" : photoCount === 1 ? "1 枚" : `${
         (function () {
           var root = document.querySelector(".album-page__gallery-root");
           if (!root) return;
+
           var dialog = root.querySelector(".album-lightbox");
           var shell = root.querySelector(".album-lightbox__shell");
           var lightImg = root.querySelector(".album-lightbox__img");
