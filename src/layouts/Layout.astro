@@ -18,11 +18,17 @@ const currentYear = new Date().getFullYear();
         <a href="/about">このサイトについて</a>
       </nav>
       <p class="site-footer__meta">
-        &copy; {currentYear} ぽこちゃんのアルバム ·
+        &copy; <span id="current-year">{currentYear}</span> ぽこちゃんのアルバム ·
         <a href="https://nilto.com/" target="_blank" rel="noopener noreferrer">Powered by NILTO</a>
       </p>
     </footer>
     <Analytics />
+    <script is:inline>
+      const currentYearElement = document.getElementById("current-year");
+      if (currentYearElement) {
+        currentYearElement.textContent = String(new Date().getFullYear());
+      }
+    </script>
   </body>
 </html>
 
