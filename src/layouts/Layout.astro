@@ -1,6 +1,7 @@
 ---
 import Analytics from '@vercel/analytics/astro';
 const { title } = Astro.props;
+const currentYear = new Date().getFullYear();
 ---
 
 <html lang="ja">
@@ -11,6 +12,16 @@ const { title } = Astro.props;
   </head>
   <body>
     <slot />
+    <footer class="site-footer" aria-label="サイト情報">
+      <nav class="site-footer__links" aria-label="フッターリンク">
+        <a href="/">トップ</a>
+        <a href="/about">このサイトについて</a>
+      </nav>
+      <p class="site-footer__meta">
+        &copy; {currentYear} ぽこちゃんのアルバム ·
+        <a href="https://nilto.com/" target="_blank" rel="noopener noreferrer">Powered by NILTO</a>
+      </p>
+    </footer>
     <Analytics />
   </body>
 </html>
@@ -88,6 +99,49 @@ const { title } = Astro.props;
 
   .plain-link {
     color: inherit;
+  }
+
+  .site-footer {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(57, 66, 107, 0.25);
+    font-size: 0.75rem;
+    color: rgba(57, 66, 107, 0.8);
+    line-height: 1.7;
+  }
+
+  .site-footer__links {
+    margin: 0;
+    display: flex;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+  }
+
+  .site-footer__links a {
+    color: rgba(57, 66, 107, 0.8);
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .site-footer__links a:hover {
+    text-decoration: underline;
+  }
+
+  .site-footer__meta {
+    margin: 0.3rem 0 0;
+    color: rgba(57, 66, 107, 0.65);
+  }
+
+  .site-footer__meta a {
+    color: inherit;
+    font-weight: 400;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(57, 66, 107, 0.35);
+    padding-bottom: 1px;
+  }
+
+  .site-footer__meta a:hover {
+    border-bottom-color: rgba(57, 66, 107, 0.6);
   }
 
   hr {
