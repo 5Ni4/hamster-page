@@ -4,11 +4,21 @@
 
 /** NILTO GET /contents の limit 上限（公式: 1〜100） */
 const NILTO_CONTENTS_LIMIT_MAX = 100;
+const DEFAULT_NILTO_FETCH_TIMEOUT_MS = 8000;
+const DEFAULT_ALBUM_LIST_MAX_PAGES = 20;
+const DEFAULT_ALBUM_LIST_CACHE_TTL_MS = 60_000;
 
 /** NILTO モデル LUID（日別エントリ＋繰り返し photos） */
 const NILTO_MODEL_ALBUM = "album";
 
 let warnedMissingAlbumListUrl = false;
+let photoDayListCache:
+  | {
+      expiresAt: number;
+      value: PhotoDayItem[];
+    }
+  | null = null;
+let photoDayListInFlight: Promise<PhotoDayItem[]> | null = null;
 
 export type TopPageData = {
   _title?: string;
@@ -41,6 +51,21 @@ export type PhotoForAlbum = {
   /** `width` / `height` が無いとき `orientation` から付与（CSS 値、例: `3 / 4`） */
   aspectRatioCss?: string;
 };
+
+function readBoundedEnvInt(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max?: number
+): number {
+  if (value == null) return fallback;
+  const n = Number.parseInt(String(value).trim(), 10);
+  if (!Number.isFinite(n)) return fallback;
+  const rounded = Math.round(n);
+  const lower = Math.max(min, rounded);
+  if (typeof max === "number") return Math.min(max, lower);
+  return lower;
+}
 
 function parsePositiveInt(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
@@ -181,7 +206,28 @@ function normalizeContentList(json: unknown): unknown[] {
 }
 
 async function niltoJson(url: string, apiKey: string): Promise<unknown> {
-  const res = await fetch(url, { headers: niltoHeaders(apiKey) });
+  const timeoutMs = readBoundedEnvInt(
+    import.meta.env.NILTO_FETCH_TIMEOUT_MS as string | undefined,
+    DEFAULT_NILTO_FETCH_TIMEOUT_MS,
+    1000,
+    60_000
+  );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: niltoHeaders(apiKey),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error(`NILTO API タイムアウト: ${timeoutMs}ms (${url})`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const body = await res.text();
     const snippet = body.length > 280 ? `${body.slice(0, 280)}…` : body;
@@ -210,11 +256,19 @@ async function fetchAlbumListAllPaged(
   apiKey: string
 ): Promise<PhotoDayItem[]> {
   const limit = Math.min(Math.max(1, pageLimit), NILTO_CONTENTS_LIMIT_MAX);
+  const maxPages = readBoundedEnvInt(
+    import.meta.env.NILTO_ALBUM_LIST_MAX_PAGES as string | undefined,
+    DEFAULT_ALBUM_LIST_MAX_PAGES,
+    1,
+    1000
+  );
   const all: PhotoDayItem[] = [];
   let offset = 0;
   let total: number | undefined;
+  let pagesFetched = 0;
 
   while (true) {
+    pagesFetched++;
     const json = await niltoJson(buildUrl(offset, limit), apiKey);
     if (total === undefined) {
       total = readListTotal(json);
@@ -224,6 +278,14 @@ async function fetchAlbumListAllPaged(
     if (batch.length === 0) break;
     if (batch.length < limit) break;
     if (total !== undefined && all.length >= total) break;
+    if (pagesFetched >= maxPages) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[NILTO] album 一覧取得を上限ページ数で打ち切りました（pages=${pagesFetched}, max=${maxPages}）。必要なら NILTO_ALBUM_LIST_MAX_PAGES を増やしてください。`
+        );
+      }
+      break;
+    }
     offset += limit;
     if (offset > 1_000_000) break;
   }
@@ -303,6 +365,14 @@ function normalizePhotoDayItem(raw: unknown): PhotoDayItem {
  * なければ `${API_BASE}/contents?model=album&limit=...`。
  */
 export async function fetchPhotoDayList(): Promise<PhotoDayItem[]> {
+  const now = Date.now();
+  if (photoDayListCache && now < photoDayListCache.expiresAt) {
+    return photoDayListCache.value;
+  }
+  if (photoDayListInFlight) {
+    return photoDayListInFlight;
+  }
+
   const apiKey = import.meta.env.NILTO_API_KEY as string | undefined;
   const listUrlEnv =
     (import.meta.env.NILTO_ALBUM_LIST_URL as string | undefined) ||
@@ -323,50 +393,71 @@ export async function fetchPhotoDayList(): Promise<PhotoDayItem[]> {
     return [];
   }
 
+  const loadPromise = (async (): Promise<PhotoDayItem[]> => {
+    try {
+      let list: PhotoDayItem[];
+
+      if (listUrlEnv) {
+        const u = new URL(listUrlEnv.trim());
+        if (!u.searchParams.has("model")) {
+          u.searchParams.set("model", NILTO_MODEL_ALBUM);
+        }
+        let customLimit = Number.parseInt(u.searchParams.get("limit") ?? "", 10);
+        if (!Number.isFinite(customLimit) || customLimit < 1) {
+          customLimit = NILTO_CONTENTS_LIMIT_MAX;
+        }
+        const pageLimit = Math.min(customLimit, NILTO_CONTENTS_LIMIT_MAX);
+        u.searchParams.set("limit", String(pageLimit));
+        u.searchParams.delete("offset");
+
+        list = await fetchAlbumListAllPaged(
+          pageLimit,
+          (offset, lim) => {
+            u.searchParams.set("offset", String(offset));
+            u.searchParams.set("limit", String(lim));
+            return u.toString();
+          },
+          apiKey
+        );
+      } else {
+        list = await fetchAlbumListAllPaged(
+          NILTO_CONTENTS_LIMIT_MAX,
+          (offset, lim) =>
+            `${defaultListBase}?model=${encodeURIComponent(NILTO_MODEL_ALBUM)}&limit=${lim}&offset=${offset}`,
+          apiKey
+        );
+      }
+
+      if (import.meta.env.DEV && list.length === 0) {
+        console.warn(
+          "[NILTO] album 一覧が0件です。モデルLUID・APIキー・スペース設定（必要なら URL に space=）を確認してください。"
+        );
+      }
+
+      const cacheTtlMs = readBoundedEnvInt(
+        import.meta.env.NILTO_ALBUM_LIST_CACHE_TTL_MS as string | undefined,
+        DEFAULT_ALBUM_LIST_CACHE_TTL_MS,
+        1000,
+        60 * 60 * 1000
+      );
+      photoDayListCache = {
+        value: list,
+        expiresAt: Date.now() + cacheTtlMs,
+      };
+      return list;
+    } catch (e) {
+      console.error("NILTO album 一覧の取得に失敗しました。", e);
+      return [];
+    }
+  })();
+
+  photoDayListInFlight = loadPromise;
   try {
-    let list: PhotoDayItem[];
-
-    if (listUrlEnv) {
-      const u = new URL(listUrlEnv.trim());
-      if (!u.searchParams.has("model")) {
-        u.searchParams.set("model", NILTO_MODEL_ALBUM);
-      }
-      let customLimit = Number.parseInt(u.searchParams.get("limit") ?? "", 10);
-      if (!Number.isFinite(customLimit) || customLimit < 1) {
-        customLimit = NILTO_CONTENTS_LIMIT_MAX;
-      }
-      const pageLimit = Math.min(customLimit, NILTO_CONTENTS_LIMIT_MAX);
-      u.searchParams.set("limit", String(pageLimit));
-      u.searchParams.delete("offset");
-
-      list = await fetchAlbumListAllPaged(
-        pageLimit,
-        (offset, lim) => {
-          u.searchParams.set("offset", String(offset));
-          u.searchParams.set("limit", String(lim));
-          return u.toString();
-        },
-        apiKey
-      );
-    } else {
-      list = await fetchAlbumListAllPaged(
-        NILTO_CONTENTS_LIMIT_MAX,
-        (offset, lim) =>
-          `${defaultListBase}?model=${encodeURIComponent(NILTO_MODEL_ALBUM)}&limit=${lim}&offset=${offset}`,
-        apiKey
-      );
+    return await loadPromise;
+  } finally {
+    if (photoDayListInFlight === loadPromise) {
+      photoDayListInFlight = null;
     }
-
-    if (import.meta.env.DEV && list.length === 0) {
-      console.warn(
-        "[NILTO] album 一覧が0件です。モデルLUID・APIキー・スペース設定（必要なら URL に space=）を確認してください。"
-      );
-    }
-
-    return list;
-  } catch (e) {
-    console.error("NILTO album 一覧の取得に失敗しました。", e);
-    return [];
   }
 }
 

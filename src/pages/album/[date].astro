@@ -10,7 +10,8 @@ import {
 } from "../../lib/nilto";
 
 const dateParam = Astro.params.date;
-const items = await fetchPhotoDayList();
+const isValidDateParam = Boolean(dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam));
+const items = isValidDateParam ? await fetchPhotoDayList() : [];
 const grouped = groupPhotoDaysByDate(items);
 const photos = dateParam ? mergePhotosForDate(grouped.get(dateParam) ?? []) : [];
 
@@ -18,6 +19,8 @@ const heading = dateParam ? formatJapaneseAlbumHeading(dateParam) : "";
 const title = dateParam ? `${heading} のアルバム` : "アルバム";
 const photoCount = photos.length;
 const photoCountLabel = photoCount === 0 ? "" : photoCount === 1 ? "1 枚" : `${photoCount} 枚`;
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
 ---
 
 <Layout title={title}>
